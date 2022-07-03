@@ -18,7 +18,7 @@ pub fn run(allocator: Allocator, files: [][]const u8) anyerror!void {
             if (err == Dir.OpenError.NotDir) {
                 const file: File = try fs.openFileAbsolute(absPath, .{ .mode = fs.File.OpenMode.read_only });
                 defer file.close();
-                cat.run(file);
+                try cat.run(file);
                 return;
             } else if (err == Dir.OpenError.FileNotFound) {
                 try log.errWriter.print("\"{s}\": not found\n", .{path});
@@ -29,6 +29,6 @@ pub fn run(allocator: Allocator, files: [][]const u8) anyerror!void {
             return err;
         };
         defer directory.close();
-        ls.run(directory);
+        try ls.run(directory);
     }
 }

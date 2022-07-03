@@ -41,8 +41,10 @@ pub fn main() anyerror!void {
             try files.append(pos);
         }
     }
+
     las.run(allocator, files.toOwnedSlice()) catch |err| {
         try log.errWriter.print("las: ERROR: \"{s}\"", .{@errorName(err)});
+        os.exit(1);
     };
     os.exit(0);
 }
