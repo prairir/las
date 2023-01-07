@@ -1,0 +1,6 @@
+id: ena98zpik6sfgxajlhrcj5hvw1e3uvncerkilziekw3qxso0
+name: las
+license: MIT
+description: ls + cat
+root_dependencies:
+  - src: git https://github.com/Hejsil/zig-clap

@@ -13,8 +13,13 @@ const parsers = .{
 };
 
 pub fn main() anyerror!void {
+    defer os.exit(0); //return 0 if exits nicely
+    errdefer os.exit(1); // return 1 if error
+
     const params = comptime clap.parseParamsComptime(
         \\-h, --help	Displays this message
+        \\-l, --long	Displays stat of arg. Similar to ls -l
+        \\-a, --all		Displays all files including those starting with `.`
         \\<FILE>
     );
 
@@ -25,7 +30,7 @@ pub fn main() anyerror!void {
         try clap.usage(log.errWriter, clap.Help, &params);
         try log.errWriter.writeAll("\n\nOptions:\n");
         try clap.help(log.errWriter, clap.Help, &params, .{});
-        std.os.exit(0);
+        return;
     }
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -42,9 +47,10 @@ pub fn main() anyerror!void {
         }
     }
 
-    las.run(allocator, files.toOwnedSlice()) catch |err| {
-        try log.errWriter.print("las: ERROR: \"{s}\"", .{@errorName(err)});
-        os.exit(1);
+    las.run(allocator, &log.outBufWriter.writer(), log.errWriter, files.toOwnedSlice(), res.args) catch |err| {
+        try log.errWriter.print("las: ERROR: \"{s}\"\n", .{@errorName(err)});
+        try log.errWriter.print("las: ERROR: {s}", .{@errorReturnTrace()});
+        return err;
     };
-    os.exit(0);
+    try log.outBufWriter.flush(); // flushed away
 }
