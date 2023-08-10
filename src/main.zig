@@ -3,6 +3,8 @@ const io = std.io;
 
 const clap = @import("clap");
 
+const las = @import("las.zig");
+
 pub fn main() !void {
     const params = comptime clap.parseParamsComptime(
         \\-h, --help	Displays this message
@@ -23,4 +25,21 @@ pub fn main() !void {
     for (res.positionals) |pos| {
         std.debug.print("{s}\n", .{pos});
     }
+
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+
+    var files = std.ArrayList([]const u8).init(allocator);
+    defer files.deinit();
+    if (res.positionals.len == 0) {
+        const files_arr = [_]u8{'.'};
+        try files.append(files_arr[0..]);
+    } else {
+        for (res.positionals) |pos| {
+            try files.append(pos);
+        }
+    }
+
+    const fslice = try files.toOwnedSlice();
+    try las.run(allocator, fslice);
 }
