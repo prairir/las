@@ -3,18 +3,22 @@ const os = std.os;
 
 const Allocator = std.mem.Allocator;
 
+const cat = @import("cat.zig");
+
 const AT_FDCWD = -100;
 
-pub fn run(allocator: Allocator, paths: [][]const u8) anyerror!void {
-    _ = allocator;
+pub fn run(allocator: Allocator, paths: [][]const u8) !void {
+    var outBufWriter = std.io.bufferedWriter(std.io.getStdOut().writer());
+    defer outBufWriter.flush() catch unreachable;
+
+    var writer = outBufWriter.writer();
 
     for (paths) |path| {
         const stat = try os.fstatat(AT_FDCWD, path, 0);
-        std.debug.print("{d}\n", .{stat.mode});
 
         switch (stat.mode & std.os.S.IFMT) {
             std.os.linux.S.IFREG => {
-                std.debug.print("REGULAR FILE CAT CAT\n", .{});
+                try cat.run(allocator, path, stat, writer);
             },
             std.os.linux.S.IFDIR => {
                 std.debug.print("REGULAR DIR LS LS\n", .{});
