@@ -19,17 +19,18 @@ pub fn main() anyerror!void {
     const params = comptime clap.parseParamsComptime(
         \\-h, --help	Displays this message
         \\-l, --long	Displays stat of arg. Similar to ls -l
-        \\-a, --all		Displays all files including those starting with `.`
+        \\-a, --all	Displays all files including those starting with `.`
         \\<FILE>
     );
 
     const res = try clap.parse(clap.Help, &params, parsers, .{});
 
     if (res.args.help) {
-        try log.errWriter.writeAll("Usage: las ");
-        try clap.usage(log.errWriter, clap.Help, &params);
-        try log.errWriter.writeAll("\n\nOptions:\n");
-        try clap.help(log.errWriter, clap.Help, &params, .{});
+        const errWriter = io.getStdErr().writer();
+        try errWriter.writeAll("Usage: las ");
+        try clap.usage(errWriter, clap.Help, &params);
+        try errWriter.writeAll("\n\nOptions:\n");
+        try clap.help(errWriter, clap.Help, &params, .{});
         return;
     }
 
@@ -47,9 +48,15 @@ pub fn main() anyerror!void {
         }
     }
 
-    las.run(allocator, &log.outBufWriter.writer(), log.errWriter, files.toOwnedSlice(), res.args) catch |err| {
-        try log.errWriter.print("las: ERROR: \"{s}\"\n", .{@errorName(err)});
-        try log.errWriter.print("las: ERROR: {s}", .{@errorReturnTrace()});
+    var outBufWriter = std.io.bufferedWriter(std.io.getStdOut().writer());
+
+    const errWriter = io.getStdErr().writer();
+
+    var filesSlice = try files.toOwnedSlice();
+
+    las.run(allocator, &outBufWriter.writer(), log.errWriter, filesSlice, res.args) catch |err| {
+        try errWriter.print("las: ERROR: \"{s}\"\n", .{@errorName(err)});
+        try errWriter.print("las: ERROR: {s}", .{@errorReturnTrace()});
         return err;
     };
     try log.outBufWriter.flush(); // flushed away
