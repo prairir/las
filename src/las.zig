@@ -14,6 +14,10 @@ pub fn run(allocator: Allocator, paths: [][]const u8) !void {
     var writer = outBufWriter.writer();
 
     for (paths) |path| {
+        if (paths.len != 1) {
+            try writer.print("{s}:\n", .{path});
+        }
+
         const stat = try os.fstatat(AT_FDCWD, path, 0);
 
         switch (stat.mode & std.os.S.IFMT) {
@@ -21,11 +25,13 @@ pub fn run(allocator: Allocator, paths: [][]const u8) !void {
                 try cat.run(allocator, path, stat, writer);
             },
             std.os.linux.S.IFDIR => {
-                std.debug.print("REGULAR DIR LS LS\n", .{});
+                try writer.print("REGULAR DIR LS LS\n", .{});
             },
             else => {
-                std.debug.print("WHO KNOWS\n", .{});
+                try writer.print("WHO KNOWS\n", .{});
             },
         }
     }
+
+    try writer.print("\n", .{});
 }

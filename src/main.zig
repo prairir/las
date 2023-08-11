@@ -22,10 +22,6 @@ pub fn main() !void {
         return clap.help(std.io.getStdErr().writer(), clap.Help, &params, .{});
     }
 
-    for (res.positionals) |pos| {
-        std.debug.print("{s}\n", .{pos});
-    }
-
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
