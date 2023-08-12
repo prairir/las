@@ -4,6 +4,7 @@ const os = std.os;
 const Allocator = std.mem.Allocator;
 
 const cat = @import("cat.zig");
+const ls = @import("ls.zig");
 
 const AT_FDCWD = -100;
 
@@ -25,7 +26,7 @@ pub fn run(allocator: Allocator, paths: [][]const u8) !void {
                 try cat.run(allocator, path, stat, writer);
             },
             std.os.linux.S.IFDIR => {
-                try writer.print("REGULAR DIR LS LS\n", .{});
+                try ls.run(allocator, path, stat, writer);
             },
             else => {
                 try writer.print("WHO KNOWS\n", .{});
