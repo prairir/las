@@ -3,68 +3,44 @@ const os = std.os;
 const fs = std.fs;
 const Allocator = std.mem.Allocator;
 
-const Entry = struct {
-    allocator: Allocator,
-    parent_path: []const u8,
-    name: ?[]const u8,
+const States = @import("states.zig");
 
-    pub fn init(allocator: Allocator, parent_path: []const u8) !Entry {
-        const pp_copy = try allocator.dupe(parent_path);
-        return Entry{
-            .allocator = allocator,
-            .parent_path = pp_copy,
-        };
-    }
+const Types = @import("types.zig");
+const SpyContext = Types.SpyContext;
+const Entry = Types.Entry;
 
-    pub fn deinit(self: *Entry) void {
-        self.allocator.free(self.parent_path);
-        self.allocator.free(self.name);
-    }
-};
-
+// run: main entry point for ls. `Stat` can be passed in to avoid re-calling `stat`.
+// under the hood, it uses a modular system of states. that way printing can be semi plug and play.
+//
+// I literally spent **a year** tinkering with this.
 pub fn run(allocator: Allocator, path: []const u8, stat: os.Stat, writer: anytype) !void {
-    _ = writer;
     _ = stat;
 
-    try spy(allocator, path, .{State.name});
+    const s_list = &[_]States.State{States.State{ .name = .{} }};
+    var entries = try spy(allocator, path, s_list);
 
-    try print();
+    try print(writer, s_list, entries);
+
+    for (entries) |*e| {
+        e.deinit();
+    }
 }
 
-const State = enum {
-    name,
-    strmode,
-};
-
-// type to simplify passing around the dir entry and stat
-// and processing entries with special processing rules. This also adds the ability
-// to do nice DI
-const SpyEntry = struct {
-    dir_entry: fs.IterableDir.Entry,
-    stat: ?os.Stat,
-
-    pub fn process(self: SpyEntry, state: State, entry: *Entry) !void {
-        switch (state) {
-            .name => process_name(self, entry),
-        }
-    }
-
-    fn process_name(self: State, entry: *Entry) void {
-        entry.name = self.dir_entry.name;
-    }
-};
-
-// spy: dir walk + populate entry table. Returned list of entries is owned by caller
-pub fn spy(allocator: Allocator, path: []const u8, states: []const State) ![]Entry {
+// spy: dir walk + populate entry array. Returned list of entries is owned by caller
+pub fn spy(allocator: Allocator, path: []const u8, states: []const States.State) ![]Entry {
     var entries = std.ArrayList(Entry).init(allocator);
     const d = try fs.cwd().openIterableDir(path, .{}); //openFile works like fstatat in terms of relativicity
-    for (d) |dir_entry| {
-        const e = try Entry.init(allocator, path);
+    var iterator = d.iterate();
 
-        const spy_entry = SpyEntry{ .dir_entry = dir_entry, .stat = null };
-        for (states) |state| {
-            try spy_entry.process(state, &e);
-        }
+    while (try iterator.next()) |dir_entry| {
+        var e = try Entry.init(allocator, path);
+
+        const spy_entry = .{ .dir_entry = dir_entry, .stat = null };
+        for (states) |state| switch (state) {
+            .name => |s| {
+                s.spy(spy_entry, &e);
+            },
+        };
 
         try entries.append(e);
     }
@@ -72,4 +48,19 @@ pub fn spy(allocator: Allocator, path: []const u8, states: []const State) ![]Ent
     return entries.toOwnedSlice();
 }
 
-pub fn print() !void {}
+// calculate: calculate the max length of each column
+pub fn calculate(allocator: Allocator, entries: Entry) !void {
+    _ = entries;
+    _ = allocator;
+}
+
+pub fn print(writer: anytype, states: []const States.State, entries: []Entry) !void {
+    for (entries) |e| {
+        for (states) |state| switch (state) {
+            .name => |s| {
+                try s.print(e, writer);
+                try writer.print("\n", .{});
+            },
+        };
+    }
+}
