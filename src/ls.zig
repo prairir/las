@@ -19,7 +19,10 @@ pub fn run(allocator: Allocator, path: []const u8, stat: os.Stat, writer: anytyp
     const s_list = &[_]States.State{States.State{ .name = .{} }};
     var entries = try spy(allocator, path, s_list);
 
-    try print(writer, s_list, entries);
+    const max_widths = try calculate(allocator, s_list, entries);
+    defer allocator.free(max_widths);
+
+    try print(writer, s_list, entries, max_widths);
 
     for (entries) |*e| {
         e.deinit();
@@ -38,7 +41,7 @@ pub fn spy(allocator: Allocator, path: []const u8, states: []const States.State)
         const spy_entry = .{ .dir_entry = dir_entry, .stat = null };
         for (states) |state| switch (state) {
             .name => |s| {
-                s.spy(spy_entry, &e);
+                try s.spy(spy_entry, &e);
             },
         };
 
@@ -49,17 +52,37 @@ pub fn spy(allocator: Allocator, path: []const u8, states: []const States.State)
 }
 
 // calculate: calculate the max length of each column
-pub fn calculate(allocator: Allocator, entries: Entry) !void {
-    _ = entries;
-    _ = allocator;
+pub fn calculate(allocator: Allocator, states: []const States.State, entries: []Entry) ![]const usize {
+    var column_max = std.ArrayList(usize).init(allocator);
+
+    for (entries) |e| {
+        for (states, 0..) |state, i| {
+            const size = switch (state) {
+                .name => |s| s.calculate(e),
+            };
+
+            if (column_max.items.len <= i) {
+                try column_max.append(size);
+                continue;
+            }
+
+            const col_size = column_max.items[i];
+
+            if (col_size < size) {
+                column_max.items[i] = size;
+            }
+        }
+    }
+
+    return column_max.toOwnedSlice();
 }
 
-pub fn print(writer: anytype, states: []const States.State, entries: []Entry) !void {
+pub fn print(writer: anytype, states: []const States.State, entries: []Entry, widths: []const usize) !void {
     for (entries) |e| {
-        for (states) |state| switch (state) {
+        for (states, widths) |state, w| switch (state) {
             .name => |s| {
                 try s.print(e, writer);
-                try writer.print("\n", .{});
+                try writer.print("{}\n", .{w});
             },
         };
     }

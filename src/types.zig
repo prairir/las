@@ -23,7 +23,19 @@ pub const Entry = struct {
         };
     }
 
+    pub fn setName(self: *Entry, name: []const u8) !void {
+        if (self.name != null) {
+            self.allocator.free(self.name.?);
+        }
+
+        self.name = try self.allocator.dupe(u8, name);
+    }
+
     pub fn deinit(self: *Entry) void {
         self.allocator.free(self.parent_path);
+
+        if (self.name != null) {
+            self.allocator.free(self.name.?);
+        }
     }
 };
