@@ -5,9 +5,12 @@ const clap = @import("clap");
 
 const las = @import("las.zig");
 
+const Flags = @import("types.zig").Flags;
+
 pub fn main() !void {
     const params = comptime clap.parseParamsComptime(
-        \\-h, --help	Displays this message
+        \\-h, --help	displays this message
+        \\-a, --all	do not ignore entries starting with .
         \\<FILE>
     );
 
@@ -37,5 +40,7 @@ pub fn main() !void {
     }
 
     const fslice = try files.toOwnedSlice();
-    try las.run(allocator, fslice);
+
+    var flags = Flags{ .All = res.args.all != 0 };
+    try las.run(allocator, fslice, flags);
 }

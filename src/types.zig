@@ -3,6 +3,10 @@ const os = std.os;
 const fs = std.fs;
 const Allocator = std.mem.Allocator;
 
+pub const Flags = struct {
+    All: bool,
+};
+
 // type to simplify passing around the dir entry and stat
 pub const SpyContext = struct {
     dir_entry: fs.IterableDir.Entry,
