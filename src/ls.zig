@@ -14,16 +14,15 @@ const Flags = Types.Flags;
 // under the hood, it uses a modular system of states. that way printing can be semi plug and play.
 //
 // I literally spent **a year** tinkering with this.
-pub fn run(allocator: Allocator, path: []const u8, stat: os.Stat, writer: anytype, flags: Flags) !void {
+pub fn run(allocator: Allocator, path: []const u8, stat: os.Stat, writer: anytype, flags: Flags, states: []const States.State) !void {
     _ = stat;
 
-    const s_list = &[_]States.State{States.State{ .name = .{} }};
-    var entries = try spy(allocator, path, s_list, flags);
+    var entries = try spy(allocator, path, states, flags);
 
-    const max_widths = try calculate(allocator, s_list, entries);
+    const max_widths = try calculate(allocator, states, entries);
     defer allocator.free(max_widths);
 
-    try print(writer, s_list, entries, max_widths);
+    try print(writer, states, entries, max_widths);
 
     for (entries) |*e| {
         e.deinit();
@@ -48,6 +47,7 @@ pub fn spy(allocator: Allocator, path: []const u8, states: []const States.State,
             .name => |s| {
                 try s.spy(spy_entry, &e);
             },
+            .end => break,
         };
 
         try entries.append(e);
@@ -64,6 +64,9 @@ pub fn calculate(allocator: Allocator, states: []const States.State, entries: []
         for (states, 0..) |state, i| {
             const size = switch (state) {
                 .name => |s| s.calculate(e),
+                .end => {
+                    break;
+                },
             };
 
             if (column_max.items.len <= i) {
@@ -84,11 +87,16 @@ pub fn calculate(allocator: Allocator, states: []const States.State, entries: []
 
 pub fn print(writer: anytype, states: []const States.State, entries: []Entry, widths: []const usize) !void {
     for (entries) |e| {
-        for (states, widths) |state, w| switch (state) {
-            .name => |s| {
-                try s.print(e, writer);
-                try writer.print("{}\n", .{w});
-            },
-        };
+        for (states, 0..) |state, i| {
+            switch (state) {
+                .name => |s| {
+                    try s.print(e, writer);
+                    try writer.print("{}", .{widths[i]});
+                },
+                .end => break,
+            }
+            try writer.print(" ", .{});
+        }
+        try writer.print("\n", .{});
     }
 }
