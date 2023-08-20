@@ -8,16 +8,16 @@ const States = @import("states.zig");
 const Types = @import("types.zig");
 const SpyContext = Types.SpyContext;
 const Entry = Types.Entry;
-const Flags = Types.Flags;
+const Config = Types.Config;
 
 // run: main entry point for ls. `Stat` can be passed in to avoid re-calling `stat`.
 // under the hood, it uses a modular system of states. that way printing can be semi plug and play.
 //
 // I literally spent **a year** tinkering with this.
-pub fn run(allocator: Allocator, path: []const u8, stat: os.Stat, writer: anytype, flags: Flags, states: []const States.State) !void {
+pub fn run(allocator: Allocator, path: []const u8, stat: os.Stat, writer: anytype, config: Config, states: []const States.State) !void {
     _ = stat;
 
-    var entries = try spy(allocator, path, states, flags);
+    var entries = try spy(allocator, path, states, config);
 
     const max_widths = try calculate(allocator, states, entries);
     defer allocator.free(max_widths);
@@ -30,13 +30,13 @@ pub fn run(allocator: Allocator, path: []const u8, stat: os.Stat, writer: anytyp
 }
 
 // spy: dir walk + populate entry array. Returned list of entries is owned by caller
-pub fn spy(allocator: Allocator, path: []const u8, states: []const States.State, flags: Flags) ![]Entry {
+pub fn spy(allocator: Allocator, path: []const u8, states: []const States.State, config: Config) ![]Entry {
     var entries = std.ArrayList(Entry).init(allocator);
     const d = try fs.cwd().openIterableDir(path, .{}); //openFile works like fstatat in terms of relativicity
     var iterator = d.iterate();
 
     while (try iterator.next()) |dir_entry| {
-        if (!flags.All and dir_entry.name[0] == '.') {
+        if (!config.Hidden and dir_entry.name[0] == '.') {
             continue;
         }
 

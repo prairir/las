@@ -3,8 +3,18 @@ const os = std.os;
 const fs = std.fs;
 const Allocator = std.mem.Allocator;
 
-pub const Flags = struct {
-    All: bool,
+pub const Config = struct {
+    Hidden: bool,
+
+    pub fn init(flags: anytype) Config {
+        var config = Config{ .Hidden = false };
+
+        if (flags.all != 0) {
+            config.Hidden = true;
+        }
+
+        return config;
+    }
 };
 
 // type to simplify passing around the dir entry and stat

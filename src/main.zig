@@ -5,7 +5,7 @@ const clap = @import("clap");
 
 const las = @import("las.zig");
 
-const Flags = @import("types.zig").Flags;
+const Config = @import("types.zig").Config;
 
 pub fn main() !void {
     const params = comptime clap.parseParamsComptime(
@@ -41,6 +41,6 @@ pub fn main() !void {
 
     const fslice = try files.toOwnedSlice();
 
-    var flags = Flags{ .All = res.args.all != 0 };
-    try las.run(allocator, fslice, flags);
+    var config = Config.init(res.args);
+    try las.run(allocator, fslice, config);
 }

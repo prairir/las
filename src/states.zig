@@ -5,7 +5,7 @@ const Allocator = std.mem.Allocator;
 const Types = @import("types.zig");
 const SpyContext = Types.SpyContext;
 const Entry = Types.Entry;
-const Flags = Types.Flags;
+const Config = Types.Config;
 
 pub const State = union(enum) {
     name: Name,
@@ -13,10 +13,10 @@ pub const State = union(enum) {
 };
 
 // owner owns states array
-pub fn Parse(allocator: Allocator, flags: Flags) ![]State {
+pub fn Parse(allocator: Allocator, config: Config) ![]State {
     var states = std.ArrayList(State).init(allocator);
     defer states.deinit();
-    _ = flags;
+    _ = config;
 
     try states.append(.{ .name = .{ .a = true } });
 
