@@ -4,13 +4,17 @@ const fs = std.fs;
 const Allocator = std.mem.Allocator;
 
 pub const Config = struct {
-    Hidden: bool,
+    ShowHidden: bool = false,
+    ShowSelf: bool = false,
+    ShowParent: bool = false,
 
     pub fn init(flags: anytype) Config {
-        var config = Config{ .Hidden = false };
+        var config: Config = .{};
 
         if (flags.all != 0) {
-            config.Hidden = true;
+            config.ShowHidden = true;
+            config.ShowSelf = true;
+            config.ShowParent = true;
         }
 
         return config;
@@ -19,23 +23,14 @@ pub const Config = struct {
 
 // type to simplify passing around the dir entry and stat
 pub const SpyContext = struct {
-    dir_entry: fs.IterableDir.Entry,
-    stat: ?os.Stat,
+    name: []const u8,
+    kind: ?fs.File.Kind = null,
+    stat: ?os.Stat = null,
 };
 
 pub const Entry = struct {
     allocator: Allocator,
-    parent_path: []const u8,
-    name: ?[]const u8,
-
-    pub fn init(allocator: Allocator, parent_path: []const u8) !Entry {
-        const pp_copy = try allocator.dupe(u8, parent_path);
-        return .{
-            .allocator = allocator,
-            .parent_path = pp_copy,
-            .name = null,
-        };
-    }
+    name: ?[]const u8 = null,
 
     pub fn setName(self: *Entry, name: []const u8) !void {
         if (self.name != null) {
@@ -46,8 +41,6 @@ pub const Entry = struct {
     }
 
     pub fn deinit(self: *Entry) void {
-        self.allocator.free(self.parent_path);
-
         if (self.name != null) {
             self.allocator.free(self.name.?);
         }

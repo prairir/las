@@ -34,7 +34,7 @@ pub const Name = struct {
     a: bool, // this is literally just to make the compiler happy and not a 0 size type
     pub fn spy(self: Name, context: SpyContext, entry: *Entry) !void {
         _ = self;
-        try entry.setName(context.dir_entry.name);
+        try entry.setName(context.name);
     }
 
     pub fn calculate(self: Name, entry: Entry) usize {

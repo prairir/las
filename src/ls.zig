@@ -32,28 +32,47 @@ pub fn run(allocator: Allocator, path: []const u8, stat: os.Stat, writer: anytyp
 // spy: dir walk + populate entry array. Returned list of entries is owned by caller
 pub fn spy(allocator: Allocator, path: []const u8, states: []const States.State, config: Config) ![]Entry {
     var entries = std.ArrayList(Entry).init(allocator);
+
     const d = try fs.cwd().openIterableDir(path, .{}); //openFile works like fstatat in terms of relativicity
     var iterator = d.iterate();
 
+    if (config.ShowSelf) {
+        var e = Entry{ .allocator = allocator };
+        const context = .{ .name = "." };
+        try fill_entry(context, states, &e);
+        try entries.append(e);
+    }
+
+    if (config.ShowParent) {
+        var e = Entry{ .allocator = allocator };
+        const context = .{ .name = ".." };
+        try fill_entry(context, states, &e);
+        try entries.append(e);
+    }
+
     while (try iterator.next()) |dir_entry| {
-        if (!config.Hidden and dir_entry.name[0] == '.') {
+        if (!config.ShowHidden and dir_entry.name[0] == '.') {
             continue;
         }
 
-        var e = try Entry.init(allocator, path);
+        var e = Entry{ .allocator = allocator };
 
-        const spy_entry = .{ .dir_entry = dir_entry, .stat = null };
-        for (states) |state| switch (state) {
-            .name => |s| {
-                try s.spy(spy_entry, &e);
-            },
-            .end => break,
-        };
-
+        const context = .{ .name = dir_entry.name };
+        try fill_entry(context, states, &e);
         try entries.append(e);
     }
 
     return entries.toOwnedSlice();
+}
+
+// fill_entry: fill an entry with data from the states
+fn fill_entry(context: SpyContext, states: []const States.State, entry: *Entry) !void {
+    for (states) |state| switch (state) {
+        .name => |s| {
+            try s.spy(context, entry);
+        },
+        .end => break,
+    };
 }
 
 // calculate: calculate the max length of each column
