@@ -15,9 +15,7 @@ const Config = Types.Config;
 //
 // I literally spent **a year** tinkering with this.
 pub fn run(allocator: Allocator, path: []const u8, stat: os.Stat, writer: anytype, config: Config, states: []const States.State) !void {
-    _ = stat;
-
-    var entries = try spy(allocator, path, states, config);
+    var entries = try spy(allocator, path, states, config, stat);
 
     const max_widths = try calculate(allocator, states, entries);
     defer allocator.free(max_widths);
@@ -30,7 +28,7 @@ pub fn run(allocator: Allocator, path: []const u8, stat: os.Stat, writer: anytyp
 }
 
 // spy: dir walk + populate entry array. Returned list of entries is owned by caller
-pub fn spy(allocator: Allocator, path: []const u8, states: []const States.State, config: Config) ![]Entry {
+pub fn spy(allocator: Allocator, path: []const u8, states: []const States.State, config: Config, parent_stat: os.Stat) ![]Entry {
     var entries = std.ArrayList(Entry).init(allocator);
 
     const d = try fs.cwd().openIterableDir(path, .{}); //openFile works like fstatat in terms of relativicity
@@ -38,15 +36,15 @@ pub fn spy(allocator: Allocator, path: []const u8, states: []const States.State,
 
     if (config.ShowSelf) {
         var e = Entry{ .allocator = allocator };
-        const context = .{ .name = "." };
-        try fill_entry(context, states, &e);
+        var context = .{ .allocator = allocator, .parent_path = path, .name = ".", .stat = parent_stat };
+        try fill_entry(&context, states, &e);
         try entries.append(e);
     }
 
     if (config.ShowParent) {
         var e = Entry{ .allocator = allocator };
-        const context = .{ .name = ".." };
-        try fill_entry(context, states, &e);
+        var context = .{ .allocator = allocator, .parent_path = path, .name = ".." };
+        try fill_entry(&context, states, &e);
         try entries.append(e);
     }
 
@@ -57,8 +55,8 @@ pub fn spy(allocator: Allocator, path: []const u8, states: []const States.State,
 
         var e = Entry{ .allocator = allocator };
 
-        const context = .{ .name = dir_entry.name };
-        try fill_entry(context, states, &e);
+        var context = .{ .allocator = allocator, .parent_path = path, .name = dir_entry.name };
+        try fill_entry(&context, states, &e);
         try entries.append(e);
     }
 
@@ -66,9 +64,12 @@ pub fn spy(allocator: Allocator, path: []const u8, states: []const States.State,
 }
 
 // fill_entry: fill an entry with data from the states
-fn fill_entry(context: SpyContext, states: []const States.State, entry: *Entry) !void {
+fn fill_entry(context: *SpyContext, states: []const States.State, entry: *Entry) !void {
     for (states) |state| switch (state) {
         .name => |s| {
+            try s.spy(context.*, entry);
+        },
+        .strmode => |s| {
             try s.spy(context, entry);
         },
         .end => break,
@@ -83,6 +84,7 @@ pub fn calculate(allocator: Allocator, states: []const States.State, entries: []
         for (states, 0..) |state, i| {
             const size = switch (state) {
                 .name => |s| s.calculate(e),
+                .strmode => |s| s.calculate(),
                 .end => {
                     break;
                 },
@@ -111,6 +113,9 @@ pub fn print(writer: anytype, states: []const States.State, entries: []Entry, wi
                 .name => |s| {
                     try s.print(e, writer);
                     try writer.print("{}", .{widths[i]});
+                },
+                .strmode => |s| {
+                    try s.print(e, writer);
                 },
                 .end => break,
             }

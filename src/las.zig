@@ -10,7 +10,7 @@ const states = @import("states.zig");
 
 const Config = @import("types.zig").Config;
 
-const AT_FDCWD = -100;
+const AT_FDCWD = @import("types.zig").AT_FDCWD;
 
 pub fn run(allocator: Allocator, paths: [][]const u8, config: Config) !void {
     var outBufWriter = std.io.bufferedWriter(std.io.getStdOut().writer());
