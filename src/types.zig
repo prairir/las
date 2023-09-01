@@ -48,6 +48,7 @@ pub const Entry = struct {
     allocator: Allocator,
     name: ?[]const u8 = null,
     strmode: ?[10]u8 = null,
+    size: ?usize = null,
 
     pub fn setName(self: *Entry, name: []const u8) !void {
         if (self.name != null) {

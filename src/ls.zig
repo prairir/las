@@ -72,6 +72,9 @@ fn fill_entry(context: *SpyContext, states: []const States.State, entry: *Entry)
         .strmode => |s| {
             try s.spy(context, entry);
         },
+        .size => |s| {
+            try s.spy(context, entry);
+        },
         .end => break,
     };
 }
@@ -82,13 +85,10 @@ pub fn calculate(allocator: Allocator, states: []const States.State, entries: []
 
     for (entries) |e| {
         for (states, 0..) |state, i| {
-            const size = switch (state) {
-                .name => |s| s.calculate(e),
-                .strmode => |s| s.calculate(),
-                .end => {
-                    break;
-                },
-            };
+            if (state == States.State.end) {
+                break;
+            }
+            const size = get_entry_size(state, e);
 
             if (column_max.items.len <= i) {
                 try column_max.append(size);
@@ -106,15 +106,30 @@ pub fn calculate(allocator: Allocator, states: []const States.State, entries: []
     return column_max.toOwnedSlice();
 }
 
+fn get_entry_size(state: States.State, entry: Entry) usize {
+    return switch (state) {
+        .name => |s| s.calculate(entry),
+        .strmode => |s| s.calculate(),
+        .size => |s| s.calculate(entry),
+        .end => unreachable,
+    };
+}
+
 pub fn print(writer: anytype, states: []const States.State, entries: []Entry, widths: []const usize) !void {
     for (entries) |e| {
         for (states, 0..) |state, i| {
             switch (state) {
                 .name => |s| {
                     try s.print(e, writer);
-                    try writer.print("{}", .{widths[i]});
+                    const len = get_entry_size(state, e);
+                    try printN(writer, widths[i] - len, " ");
                 },
                 .strmode => |s| {
+                    try s.print(e, writer);
+                },
+                .size => |s| {
+                    const len = get_entry_size(state, e);
+                    try printN(writer, widths[i] - len, " ");
                     try s.print(e, writer);
                 },
                 .end => break,
@@ -122,5 +137,11 @@ pub fn print(writer: anytype, states: []const States.State, entries: []Entry, wi
             try writer.print(" ", .{});
         }
         try writer.print("\n", .{});
+    }
+}
+
+fn printN(writer: anytype, times: usize, token: []const u8) !void {
+    for (0..times) |_| {
+        try writer.print("{s}", .{token});
     }
 }

@@ -9,6 +9,7 @@ const Config = Types.Config;
 
 pub const State = union(enum) {
     name: Name,
+    size: Size,
     strmode: Strmode,
     end: End, // end state, this makes every printable state to be optional
 };
@@ -20,6 +21,8 @@ pub fn Parse(allocator: Allocator, config: Config) ![]State {
     _ = config;
 
     try states.append(.{ .strmode = .{} });
+
+    try states.append(.{ .size = .{} });
 
     try states.append(.{ .name = .{} });
 
@@ -125,6 +128,26 @@ pub const Strmode = struct {
     pub fn print(self: Strmode, entry: Entry, writer: anytype) !void {
         _ = self;
         try writer.print("{s}", .{entry.strmode.?});
+    }
+};
+
+pub const Size = struct {
+    a: bool = true, // this is literally just to make the compiler happy and not a 0 size type
+    pub fn spy(self: Size, context: *SpyContext, entry: *Entry) !void {
+        _ = self;
+        const stat = try context.getStat();
+        entry.size = @bitCast(stat.size);
+    }
+
+    pub fn calculate(self: Size, entry: Entry) usize {
+        _ = self;
+        const count = std.fmt.count("{d}", .{entry.size.?});
+        return @as(usize, count);
+    }
+
+    pub fn print(self: Size, entry: Entry, writer: anytype) !void {
+        _ = self;
+        try writer.print("{}", .{entry.size.?});
     }
 };
 
